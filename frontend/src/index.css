@@ -1,0 +1,96 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ────────────────────────────────────────
+   DARK MODE — Pitch Black (#09090b) + Warm Caramel Tan (#c59b6c)
+   ──────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --arena-bg:          #09090b;
+  --arena-bgDeep:      #050507;
+  --arena-bgElevated:  #121215;
+  --arena-card:        #141418;
+  --arena-cardGlow:    #1f1f24;
+  --arena-border:      #27272a;
+  --arena-primary:     #c59b6c;
+  --arena-primaryHover:#b88856;
+  --arena-success:     #22c55e;
+  --arena-danger:      #ef4444;
+  --arena-warning:     #eab308;
+  --arena-text:        #fafafa;
+  --arena-muted:       #a1a1aa;
+  color-scheme: dark;
+}
+
+/* ────────────────────────────────────────
+   LIGHT MODE — Off-white (#fafafa) + Caramel Tan (#c59b6c)
+   ──────────────────────────────────────── */
+[data-theme="light"] {
+  --arena-bg:          #fafafa;
+  --arena-bgDeep:      #f4f4f5;
+  --arena-bgElevated:  #ffffff;
+  --arena-card:        #ffffff;
+  --arena-cardGlow:    #f4f4f5;
+  --arena-border:      #e4e4e7;
+  --arena-primary:     #b8860b;
+  --arena-primaryHover:#996e08;
+  --arena-success:     #16a34a;
+  --arena-danger:      #dc2626;
+  --arena-warning:     #ca8a04;
+  --arena-text:        #09090b;
+  --arena-muted:       #71717a;
+  color-scheme: light;
+}
+
+/* ── Smooth Transitions ── */
+*,
+*::before,
+*::after {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, fill 0.25s ease;
+}
+
+body {
+  background-color: var(--arena-bg);
+  color: var(--arena-text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--arena-bg); }
+::-webkit-scrollbar-thumb { background: var(--arena-border); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--arena-primary); }
+
+::selection {
+  background: color-mix(in srgb, var(--arena-primary) 35%, transparent);
+  color: var(--arena-text);
+}
+
+.gradient-text-primary {
+  background: linear-gradient(135deg, var(--arena-primary) 0%, #d4a373 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.bg-grid-pattern {
+  background-size: 32px 32px;
+  background-image:
+    linear-gradient(to right, var(--arena-border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--arena-border) 1px, transparent 1px);
+  opacity: 0.15;
+}
+
+@keyframes themeFlash {
+  0% { opacity: 1; }
+  50% { opacity: 0.85; }
+  100% { opacity: 1; }
+}
+.theme-transitioning {
+  animation: themeFlash 0.25s ease;
+}
