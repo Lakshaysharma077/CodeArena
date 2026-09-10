@@ -40,7 +40,10 @@ import {
   updateOpponentTelemetry,
   setSubmissionProgress,
   setBattleResult,
-  resetBattleState
+  resetBattleState,
+  createPrivateRoomStart,
+  createPrivateRoomSuccess,
+  joinPrivateRoomStart
 } from '../store/battleSlice';
 import { updateRatingAndRank } from '../store/authSlice';
 import { matchService } from '../services/matchService';
@@ -55,6 +58,7 @@ export default function ArenaPage() {
   const [runLogs, setRunLogs] = useState(null);
   const [showEndBattleConfirm, setShowEndBattleConfirm] = useState(false);
   const [solveBanner, setSolveBanner] = useState(null);
+  const [joinCodeInput, setJoinCodeInput] = useState('');
 
   // Active current problem out of the 3 problems
   const problems = battle.problems || (battle.currentBattle?.problems || (battle.currentBattle?.problem ? [battle.currentBattle.problem] : []));
@@ -95,6 +99,56 @@ export default function ArenaPage() {
       };
     }
   }, [battle.status, user, dispatch]);
+
+  // PRIVATE ROOM POLLING
+  useEffect(() => {
+    let interval;
+    if (battle.status === 'WAITING_IN_PRIVATE_ROOM' && battle.privateRoomCode) {
+      interval = setInterval(async () => {
+        try {
+          const room = await matchService.checkPrivateRoomStatus(battle.privateRoomCode);
+          if (room.status === 'STARTED' && room.battle) {
+            dispatch(matchFoundTrigger(room.battle));
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }, 2000);
+    }
+    return () => clearInterval(interval);
+  }, [battle.status, battle.privateRoomCode, dispatch]);
+
+  const handleCreatePrivateRoom = async () => {
+    dispatch(createPrivateRoomStart());
+    try {
+      const data = await matchService.createPrivateRoom({
+        userId: user?.id || 'usr_demo',
+        username: user?.username || 'Lakshay',
+        rating: user?.rating || 1642,
+        rank: user?.rank || 'Platinum'
+      });
+      dispatch(createPrivateRoomSuccess(data.roomId));
+    } catch (err) {
+      console.error(err);
+      dispatch(resetBattleState());
+    }
+  };
+
+  const handleJoinPrivateRoom = async () => {
+    if (!joinCodeInput.trim()) return;
+    try {
+      const data = await matchService.joinPrivateRoom({
+        roomId: joinCodeInput.trim().toUpperCase(),
+        userId: user?.id || 'usr_joiner',
+        username: user?.username || 'Challenger',
+        rating: user?.rating || 1500,
+        rank: user?.rank || 'Gold'
+      });
+      dispatch(matchFoundTrigger(data.battle));
+    } catch (err) {
+      alert(err.message || 'Failed to join room');
+    }
+  };
 
   // 2. MATCH FOUND COUNTDOWN (3 -> 2 -> 1 -> ACTIVE)
   useEffect(() => {
@@ -139,8 +193,12 @@ export default function ArenaPage() {
 
   // Handle Run Code on current question
   const handleRunBattleCode = async () => {
+    if (!currentProblem?.problemId) {
+      setRunLogs({ type: 'error', message: '⚠️ No active problem. Please join a Ranked Match or Private Room first!' });
+      return;
+    }
     setIsEvaluating(true);
-    setRunLogs('Running compiler tests against public cases...');
+    setRunLogs({ type: 'info', message: 'Running compiler tests against public cases...' });
     try {
       const res = await fetch('/api/submissions/run', {
         method: 'POST',
@@ -156,25 +214,28 @@ export default function ArenaPage() {
 
       if (data.verdict === 'ACCEPTED') {
         setActiveTestcasesPassed(data.testcasesPassed || 2);
-        setRunLogs(`✅ Accepted: ${data.testcasesPassed}/${data.totalTestcases} test cases passed (${data.runtimeMs}ms).`);
+        setRunLogs({ type: 'success', message: `✅ Accepted: ${data.testcasesPassed}/${data.totalTestcases} test cases passed (${data.runtimeMs}ms).` });
       } else if (data.verdict === 'WRONG_ANSWER') {
-        setRunLogs(`❌ Wrong Answer on Case #${data.failedTestcase?.index || 1}: Expected ${data.failedTestcase?.expectedOutput} but got ${data.failedTestcase?.actualOutput}`);
+        setRunLogs({ type: 'error', message: `❌ Wrong Answer on Case #${data.failedTestcase?.index || 1}:\nExpected: ${data.failedTestcase?.expectedOutput}\nActual: ${data.failedTestcase?.actualOutput}` });
       } else if (data.verdict === 'COMPILATION_ERROR') {
-        setRunLogs(`⚠️ Compilation Error:\n${data.compilationError}`);
+        setRunLogs({ type: 'error', message: `⚠️ Compilation Error:\n${data.compilationError}` });
       } else {
-        setRunLogs(`⚠️ Runtime Error: ${data.runtimeError || 'Script failed'}`);
+        setRunLogs({ type: 'error', message: `⚠️ Runtime Error: ${data.runtimeError || 'Script failed'}` });
       }
     } catch (err) {
       setIsEvaluating(false);
-      setRunLogs('Error running tests. Please verify code syntax.');
+      setRunLogs({ type: 'error', message: 'Error running tests. Please verify code syntax.' });
     }
   };
 
   // Submit Current Problem in 3-Question Battle
   const handleSubmitBattleProblem = async () => {
-    if (!currentProblem?.problemId) return;
+    if (!currentProblem?.problemId) {
+      setRunLogs({ type: 'error', message: '⚠️ No active problem. Please join a Ranked Match or Private Room first!' });
+      return;
+    }
     setIsEvaluating(true);
-    setRunLogs('Submitting solution to judge for Question ' + (battle.activeProblemIndex + 1) + '...');
+    setRunLogs({ type: 'info', message: `Submitting solution to judge for Question ${battle.activeProblemIndex + 1}...` });
 
     try {
       const elapsed = 900 - battle.timerSeconds;
@@ -195,7 +256,7 @@ export default function ArenaPage() {
         setSolveBanner(`🎉 Question ${battle.activeProblemIndex + 1} (${currentProblem.title}) Solved!`);
         setTimeout(() => setSolveBanner(null), 4000);
 
-        setRunLogs(`🎉 ACCEPTED! Question ${battle.activeProblemIndex + 1} passed 100% of testcases.`);
+        setRunLogs({ type: 'success', message: `🎉 ACCEPTED! Question ${battle.activeProblemIndex + 1} passed 100% of testcases.` });
 
         const updatedCount = (battle.userSolvedProblemIds.includes(currentProblem.problemId) ? battle.userSolvedProblemIds.length : battle.userSolvedProblemIds.length + 1);
 
@@ -205,12 +266,14 @@ export default function ArenaPage() {
             handleEndBattle(true);
           }, 1200);
         }
+      } else if (res.verdict === 'COMPILATION_ERROR') {
+        setRunLogs({ type: 'error', message: `⚠️ Compilation Error:\n${res.compilationError}` });
       } else {
-        setRunLogs(`❌ Submission Failed: ${res.verdict}.`);
+        setRunLogs({ type: 'error', message: `❌ Submission Failed: ${res.verdict}.\n${res.failedTestcase ? `Failed on Case #${res.failedTestcase.index}:\nExpected: ${res.failedTestcase.expectedOutput}\nActual: ${res.failedTestcase.actualOutput}` : ''}` });
       }
     } catch (err) {
       setIsEvaluating(false);
-      setRunLogs('Submission failed. Please check connection and retry.');
+      setRunLogs({ type: 'error', message: 'Submission failed. Please check connection and retry.' });
     }
   };
 
@@ -318,6 +381,24 @@ export default function ArenaPage() {
               <Swords className="w-5 h-5" />
               <span>ENTER 3-QUESTION RANKED QUEUE</span>
             </button>
+
+            {/* Private Room Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleCreatePrivateRoom}
+                className="flex-1 py-3 rounded-2xl bg-arena-bg hover:bg-arena-bgElevated border border-arena-border text-arena-text font-bold text-sm shadow-md transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center space-x-2 cursor-pointer"
+              >
+                <Users className="w-4 h-4 text-arena-primary" />
+                <span>Create Private Room</span>
+              </button>
+              <button
+                onClick={() => dispatch(joinPrivateRoomStart())}
+                className="flex-1 py-3 rounded-2xl bg-arena-bg hover:bg-arena-bgElevated border border-arena-border text-arena-text font-bold text-sm shadow-md transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center space-x-2 cursor-pointer"
+              >
+                <Flame className="w-4 h-4 text-arena-warning" />
+                <span>Join Private Room</span>
+              </button>
+            </div>
           </motion.div>
         </div>
       )}
@@ -367,6 +448,85 @@ export default function ArenaPage() {
               className="px-6 py-2 rounded-xl bg-arena-bg hover:bg-arena-bgElevated border border-arena-border text-xs font-bold text-arena-muted hover:text-arena-text transition-colors cursor-pointer"
             >
               Cancel Matchmaking
+            </button>
+          </motion.div>
+        </div>
+      )}
+
+      {/* ──────────────────────────────────────────────────
+          STATE: WAITING IN PRIVATE ROOM
+          ────────────────────────────────────────────────── */}
+      {battle.status === 'WAITING_IN_PRIVATE_ROOM' && (
+        <div className="flex-1 flex items-center justify-center p-6">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-md p-8 sm:p-10 rounded-3xl glass-card border border-arena-primary/40 bg-arena-card text-center space-y-6 shadow-glow-primary"
+          >
+            <div className="relative w-28 h-28 mx-auto flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-4 border-arena-primary/20 border-t-arena-primary animate-spin" />
+              <Users className="w-10 h-10 text-arena-primary" />
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-extrabold text-arena-text">Private Room Created</h2>
+              <p className="text-sm text-arena-muted mt-2">Share this code with your opponent</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-arena-bg border border-arena-primary/30 flex items-center justify-center">
+              <span className="text-4xl font-black text-arena-primary tracking-widest">{battle.privateRoomCode}</span>
+            </div>
+
+            <p className="text-xs text-arena-muted italic">Waiting for opponent to join...</p>
+
+            <button
+              onClick={() => dispatch(resetBattleState())}
+              className="px-6 py-2 rounded-xl bg-arena-bg hover:bg-arena-bgElevated border border-arena-border text-xs font-bold text-arena-muted hover:text-arena-text transition-colors cursor-pointer"
+            >
+              Cancel Room
+            </button>
+          </motion.div>
+        </div>
+      )}
+
+      {/* ──────────────────────────────────────────────────
+          STATE: JOINING PRIVATE ROOM
+          ────────────────────────────────────────────────── */}
+      {battle.status === 'JOINING_PRIVATE_ROOM' && (
+        <div className="flex-1 flex items-center justify-center p-6">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-md p-8 sm:p-10 rounded-3xl glass-card border border-arena-primary/40 bg-arena-card text-center space-y-6 shadow-glow-primary"
+          >
+            <Flame className="w-12 h-12 text-arena-warning mx-auto" />
+
+            <div>
+              <h2 className="text-2xl font-extrabold text-arena-text">Join Private Room</h2>
+              <p className="text-sm text-arena-muted mt-2">Enter the 6-character room code</p>
+            </div>
+
+            <input
+              type="text"
+              placeholder="Enter Room Code"
+              value={joinCodeInput}
+              onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
+              maxLength={6}
+              className="w-full text-center p-4 rounded-2xl bg-arena-bg border border-arena-border text-2xl font-black text-arena-text tracking-widest focus:outline-none focus:border-arena-primary"
+            />
+
+            <button
+              onClick={handleJoinPrivateRoom}
+              className="w-full py-3 rounded-xl bg-arena-primary hover:bg-arena-primary/80 text-white font-bold transition-all shadow-glow-primary cursor-pointer"
+            >
+              Join Battle
+            </button>
+
+            <button
+              onClick={() => dispatch(resetBattleState())}
+              className="px-6 py-2 rounded-xl bg-arena-bg hover:bg-arena-bgElevated border border-arena-border text-xs font-bold text-arena-muted hover:text-arena-text transition-colors cursor-pointer"
+            >
+              Cancel
             </button>
           </motion.div>
         </div>
@@ -628,8 +788,12 @@ export default function ArenaPage() {
               </div>
 
               {runLogs && (
-                <div className="p-2.5 rounded-xl bg-arena-card border border-arena-border text-[11px] font-mono text-arena-success whitespace-pre-line">
-                  {runLogs}
+                <div className={`p-3 rounded-xl border text-xs font-mono whitespace-pre-wrap ${
+                  runLogs.type === 'success' ? 'bg-arena-success/10 border-arena-success/40 text-arena-success' :
+                  runLogs.type === 'error' ? 'bg-red-500/10 border-red-500/40 text-red-400' :
+                  'bg-arena-card border-arena-border text-arena-primary'
+                }`}>
+                  {runLogs.message}
                 </div>
               )}
             </div>

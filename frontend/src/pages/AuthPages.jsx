@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { Swords, Mail, Lock, User } from 'lucide-react';
-import { loginSuccess } from '../store/authSlice';
+import { loginUser, registerUser } from '../store/authSlice';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const [email, setEmail] = useState('demo@codearena.dev');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -18,18 +18,10 @@ export function LoginPage() {
     setError('');
 
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Login failed');
-
-      dispatch(loginSuccess({ user: data.user, token: data.tokens?.accessToken || 'jwt_demo' }));
+      await dispatch(loginUser({ email, password })).unwrap();
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message);
+      setError(err || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -118,18 +110,10 @@ export function RegisterPage() {
     setError('');
 
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password, country, college })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Registration failed');
-
-      dispatch(loginSuccess({ user: data.user, token: data.tokens?.accessToken || 'jwt_demo' }));
+      await dispatch(registerUser({ username, email, password, country, college })).unwrap();
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message);
+      setError(err || 'Registration failed');
     } finally {
       setLoading(false);
     }

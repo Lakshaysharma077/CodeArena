@@ -9,7 +9,7 @@ const submissionSchema = new mongoose.Schema({
   language: { type: String, required: true },
   verdict: {
     type: String,
-    enum: ['Accepted', 'Wrong Answer', 'Time Limit Exceeded', 'Memory Limit Exceeded', 'Compilation Error', 'Runtime Error'],
+    enum: ['ACCEPTED', 'WRONG_ANSWER', 'TIME_LIMIT_EXCEEDED', 'MEMORY_LIMIT_EXCEEDED', 'COMPILATION_ERROR', 'RUNTIME_ERROR'],
     required: true
   },
   runtimeMs: { type: Number, default: 0 },

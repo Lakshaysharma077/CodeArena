@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import { Flame, Clock, Trophy, Users, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function ContestsPage() {
+  const { user } = useSelector((state) => state.auth);
   const [tab, setTab] = useState('ALL');
   const [contests, setContests] = useState([]);
 
   useEffect(() => {
     fetchContests();
-  }, [tab]);
+  }, [tab, user?.id]);
 
   const fetchContests = async () => {
     try {
-      const res = await fetch(`/api/contests?status=${tab}`);
+      const userId = user?.id || 'usr_demo';
+      const res = await fetch(`/api/contests?status=${tab}&userId=${userId}`);
       const data = await res.json();
       setContests(data.contests || []);
     } catch (err) {
@@ -22,7 +25,12 @@ export default function ContestsPage() {
 
   const handleRegister = async (contestId) => {
     try {
-      const res = await fetch(`/api/contests/${contestId}/register`, { method: 'POST' });
+      const userId = user?.id || 'usr_demo';
+      const res = await fetch(`/api/contests/${contestId}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
       await res.json();
       fetchContests();
     } catch (err) {

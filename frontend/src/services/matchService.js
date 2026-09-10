@@ -19,6 +19,35 @@ export const matchService = {
     return await res.json();
   },
 
+  async createPrivateRoom({ userId, username, rating, rank }) {
+    const res = await fetch(`${API_BASE}/create-private`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, username, rating, rank })
+    });
+    if (!res.ok) throw new Error('Failed to create private room');
+    return await res.json();
+  },
+
+  async joinPrivateRoom({ roomId, userId, username, rating, rank }) {
+    const res = await fetch(`${API_BASE}/join-private`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId, userId, username, rating, rank })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Failed to join private room');
+    }
+    return await res.json();
+  },
+
+  async checkPrivateRoomStatus(roomId) {
+    const res = await fetch(`${API_BASE}/private-room/${roomId}`);
+    if (!res.ok) throw new Error('Failed to check room status');
+    return await res.json();
+  },
+
   /**
    * Fetch active battle session details
    */

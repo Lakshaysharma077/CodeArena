@@ -21,6 +21,7 @@ const battleSlice = createSlice({
       estimatedWait: '< 20 sec'
     },
     countdownSeconds: 3,
+    privateRoomCode: null,
     currentBattle: null,
     opponent: null,
     timerSeconds: 900,
@@ -49,6 +50,16 @@ const battleSlice = createSlice({
     loading: false
   },
   reducers: {
+    createPrivateRoomStart: (state) => {
+      state.status = 'CREATING_PRIVATE_ROOM';
+    },
+    createPrivateRoomSuccess: (state, action) => {
+      state.status = 'WAITING_IN_PRIVATE_ROOM';
+      state.privateRoomCode = action.payload;
+    },
+    joinPrivateRoomStart: (state) => {
+      state.status = 'JOINING_PRIVATE_ROOM';
+    },
     startMatchmaking: (state, action) => {
       const userRating = action.payload?.rating || 1642;
       state.status = 'MATCHMAKING';
@@ -187,6 +198,7 @@ const battleSlice = createSlice({
     },
     resetBattleState: (state) => {
       state.status = 'IDLE';
+      state.privateRoomCode = null;
       state.currentBattle = null;
       state.opponent = null;
       state.timerSeconds = 900;
@@ -216,6 +228,9 @@ const battleSlice = createSlice({
 });
 
 export const {
+  createPrivateRoomStart,
+  createPrivateRoomSuccess,
+  joinPrivateRoomStart,
   startMatchmaking,
   tickMatchmaking,
   matchFoundTrigger,

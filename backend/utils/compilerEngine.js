@@ -266,8 +266,17 @@ for idx, tc in enumerate(suite):
             if methods:
                 method = getattr(sol_inst, methods[0])
                 actual = method(*args)
-        elif len(args) == 1:
-            actual = args[0]
+        else:
+            import inspect, sys
+            funcs = [f for n, f in inspect.getmembers(sys.modules['solution'], inspect.isfunction)]
+            if funcs:
+                # Some functions might require 'self' if they were copied directly from a class
+                try:
+                    actual = funcs[0](None, *args)
+                except TypeError:
+                    actual = funcs[0](*args)
+            elif len(args) == 1:
+                actual = args[0]
             
         if tc.get('isCustom'):
             passed += 1
@@ -386,34 +395,80 @@ print(json.dumps(result))
   });
 };
 
-/**
- * 3. Java Engine (javac 25.0.1 + java execution)
- */
 const runJava = async (code, suite, timeLimitMs = 4000) => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codearena_java_'));
   const solutionPath = path.join(tempDir, 'Solution.java');
+  const mainPath = path.join(tempDir, 'Main.java');
 
-  // Verify class Solution exists
   if (!code.includes('class Solution')) {
-    try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
-    return {
-      verdict: 'COMPILATION_ERROR',
-      runtimeMs: 0,
-      memoryMb: 0,
-      testcasesPassed: 0,
-      totalTestcases: suite.length,
-      compilationError: 'Solution.java: error: class Solution not found. Please define class Solution.',
-      runtimeError: null,
-      failedTestcase: null,
-      stdout: ''
-    };
+    code = `import java.util.*;\nimport java.math.*;\nclass Solution {\n${code}\n}`;
   }
 
-  fs.writeFileSync(solutionPath, code);
+  const methodMatch = code.match(/public\s+([a-zA-Z0-9_\[\]<>]+)\s+([a-zA-Z0-9_]+)\s*\(/);
+  const methodName = methodMatch ? methodMatch[2] : 'twoSum';
 
-  // Compile Solution.java with javac
+  const jsToJavaLiteral = (obj) => {
+    if (Array.isArray(obj)) {
+      if (obj.length === 0) return "new int[]{}";
+      if (typeof obj[0] === 'number') return "new int[]{" + obj.join(",") + "}";
+      if (typeof obj[0] === 'string') return "new String[]{" + obj.map(s => `"${s}"`).join(",") + "}";
+      return "new Object[]{}";
+    } else if (typeof obj === 'number') {
+      return obj.toString();
+    } else if (typeof obj === 'string') {
+      return `"${obj}"`;
+    } else if (typeof obj === 'boolean') {
+      return obj ? "true" : "false";
+    }
+    return "null";
+  };
+
+  let mainBody = `
+import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Solution sol = new Solution();
+        try {
+`;
+
+  suite.forEach((tc, i) => {
+    const argsJS = parseInputArguments(tc.input);
+    const argsJava = argsJS.map(jsToJavaLiteral).join(", ");
+    mainBody += `
+            try {
+                Object res = sol.${methodName}(${argsJava});
+                String resStr = "";
+                if (res != null) {
+                    if (res instanceof int[]) resStr = Arrays.toString((int[])res);
+                    else if (res instanceof String[]) resStr = Arrays.toString((String[])res);
+                    else if (res instanceof double[]) resStr = Arrays.toString((double[])res);
+                    else if (res instanceof boolean[]) resStr = Arrays.toString((boolean[])res);
+                    else if (res instanceof Object[]) resStr = Arrays.toString((Object[])res);
+                    else resStr = String.valueOf(res);
+                } else {
+                    resStr = "null";
+                }
+                resStr = resStr.replaceAll(" ", "");
+                System.out.println("TC_RESULT|" + ${i} + "|" + resStr);
+            } catch (Exception e) {
+                System.out.println("TC_ERR|" + ${i} + "|" + e.getClass().getSimpleName() + ": " + e.getMessage());
+            }
+`;
+  });
+
+  mainBody += `
+        } catch (Exception e) {
+            System.out.println("GLOBAL_ERR|" + e.getMessage());
+        }
+    }
+}
+`;
+
+  fs.writeFileSync(solutionPath, code);
+  fs.writeFileSync(mainPath, mainBody);
+
   return new Promise((resolve) => {
-    exec(`javac "${solutionPath}"`, { timeout: 3500, cwd: tempDir }, (compileErr, compileStdout, compileStderr) => {
+    exec(`javac "${solutionPath}" "${mainPath}"`, { timeout: 3500, cwd: tempDir }, (compileErr, compileStdout, compileStderr) => {
       if (compileErr || compileStderr) {
         try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
         return resolve({
@@ -422,41 +477,95 @@ const runJava = async (code, suite, timeLimitMs = 4000) => {
           memoryMb: 0,
           testcasesPassed: 0,
           totalTestcases: suite.length,
-          compilationError: (compileStderr || compileErr.message).replace(new RegExp(tempDir.replace(/\\/g, '\\\\'), 'g'), ''),
+          compilationError: (compileStderr || compileErr.message).replace(new RegExp(tempDir.replace(/\\\\/g, '\\\\\\\\'), 'g'), ''),
           runtimeError: null,
           failedTestcase: null,
           stdout: ''
         });
       }
 
-      // Check if solution has intentional logic flaws
-      let verdict = 'ACCEPTED';
-      let passed = suite.length;
-      let failedTestcase = null;
+      const startTime = Date.now();
+      exec(`java Main`, { timeout: timeLimitMs, cwd: tempDir }, (runErr, runStdout, runStderr) => {
+        const executionRuntimeMs = Date.now() - startTime;
+        try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
 
-      if (code.includes('return new int[] {}') && !code.includes('return new int[] {') && !code.includes('return new int[]{')) {
-        verdict = 'WRONG_ANSWER';
-        passed = 0;
-        failedTestcase = {
-          index: 1,
-          input: suite[0]?.input || 'nums = [2,7,11,15], target = 9',
-          expectedOutput: suite[0]?.expectedOutput || '[0, 1]',
-          actualOutput: '[]'
-        };
-      }
+        if (runErr && runErr.killed) {
+          return resolve({
+            verdict: 'TIME_LIMIT_EXCEEDED',
+            runtimeMs: timeLimitMs,
+            memoryMb: 24,
+            testcasesPassed: 0,
+            totalTestcases: suite.length,
+            compilationError: null,
+            runtimeError: 'Execution Timed Out',
+            failedTestcase: null,
+            stdout: ''
+          });
+        }
 
-      try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
+        let verdict = 'ACCEPTED';
+        let passed = 0;
+        let failedTestcase = null;
+        let runtimeError = null;
 
-      resolve({
-        verdict,
-        runtimeMs: Math.floor(Math.random() * 25) + 32,
-        memoryMb: Math.round((Math.random() * 6 + 38) * 10) / 10,
-        testcasesPassed: passed,
-        totalTestcases: suite.length,
-        compilationError: null,
-        runtimeError: null,
-        failedTestcase,
-        stdout: 'Compilation: Java 25.0.1 OpenJDK (Compiled successfully)\nAll public & stress testsuites evaluated.'
+        const lines = (runStdout || '').split('\n');
+        for (let line of lines) {
+          line = line.trim();
+          if (line.startsWith('TC_RESULT|')) {
+            const parts = line.split('|');
+            if (parts.length < 3) continue;
+            const idx = parseInt(parts[1], 10);
+            const actual = parts.slice(2).join('|').trim();
+            const tc = suite[idx];
+            if (tc.isCustom) {
+              passed++;
+            } else {
+              const expected = tc.expectedOutput.replace(/ /g, '');
+              if (actual === expected || areOutputsEqual(actual, expected)) {
+                passed++;
+              } else {
+                if (verdict === 'ACCEPTED') {
+                  verdict = 'WRONG_ANSWER';
+                  failedTestcase = {
+                    index: idx + 1,
+                    input: tc.input,
+                    expectedOutput: tc.expectedOutput,
+                    actualOutput: actual
+                  };
+                }
+              }
+            }
+          } else if (line.startsWith('TC_ERR|')) {
+            const parts = line.split('|');
+            const idx = parseInt(parts[1], 10);
+            const err = parts[2];
+            if (verdict === 'ACCEPTED') {
+              verdict = 'RUNTIME_ERROR';
+              runtimeError = err;
+              failedTestcase = {
+                index: idx + 1,
+                input: suite[idx].input,
+                expectedOutput: suite[idx].expectedOutput,
+                actualOutput: 'Runtime Error: ' + err
+              };
+            }
+          } else if (line.startsWith('GLOBAL_ERR|')) {
+            verdict = 'RUNTIME_ERROR';
+            runtimeError = line.substring('GLOBAL_ERR|'.length);
+          }
+        }
+
+        resolve({
+          verdict,
+          runtimeMs: Math.max(executionRuntimeMs, Math.floor(Math.random() * 25) + 32),
+          memoryMb: Math.round((Math.random() * 6 + 38) * 10) / 10,
+          testcasesPassed: passed,
+          totalTestcases: suite.length,
+          compilationError: null,
+          runtimeError,
+          failedTestcase,
+          stdout: runStdout
+        });
       });
     });
   });
@@ -471,18 +580,7 @@ const runCpp = async (code, suite, timeLimitMs = 4000) => {
   const exePath = path.join(tempDir, 'solution.exe');
 
   if (!code.includes('class Solution')) {
-    try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
-    return {
-      verdict: 'COMPILATION_ERROR',
-      runtimeMs: 0,
-      memoryMb: 0,
-      testcasesPassed: 0,
-      totalTestcases: suite.length,
-      compilationError: 'solution.cpp: error: class Solution must be defined.',
-      runtimeError: null,
-      failedTestcase: null,
-      stdout: ''
-    };
+    code = `#include <iostream>\n#include <vector>\n#include <string>\n#include <unordered_map>\n#include <map>\n#include <set>\n#include <algorithm>\nusing namespace std;\nclass Solution {\npublic:\n${code}\n};`;
   }
 
   fs.writeFileSync(solutionPath, code);

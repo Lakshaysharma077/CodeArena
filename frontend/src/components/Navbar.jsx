@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useSelector, useDispatch } from 'react-redux';
+import { logout } from '../store/authSlice';
 import {
   Swords,
   Trophy,
@@ -13,21 +14,28 @@ import {
   Menu,
   X,
   ChevronDown,
+  LogOut
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
 
 export default function Navbar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { user, isAuthenticated } = useSelector((state) => state.auth);
   const { theme, toggle } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const handleLogout = () => {
+    dispatch(logout());
+    navigate('/');
+  };
 
   const navLinks = [
     { name: 'Problems', path: '/problems', icon: BookOpen },
     { name: '1v1 Arena', path: '/arena', icon: Swords },
     { name: 'Leaderboard', path: '/leaderboard', icon: Trophy },
-    { name: 'Contests', path: '/contests', icon: Flame },
     { name: 'Ranks', path: '/ranks', icon: Shield },
   ];
 
@@ -146,6 +154,14 @@ export default function Navbar() {
                     {user.username}
                   </span>
                 </Link>
+
+                <button
+                  onClick={handleLogout}
+                  className="p-1.5 rounded-lg text-arena-muted hover:text-red-400 hover:bg-red-500/10 border border-transparent transition-all duration-150"
+                  title="Log out"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
               </div>
             ) : (
               <div className="flex items-center space-x-2">

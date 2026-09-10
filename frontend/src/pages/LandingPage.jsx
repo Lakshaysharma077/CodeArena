@@ -57,7 +57,7 @@ export default function LandingPage() {
               to="/arena"
               className="w-full sm:w-auto px-6 py-3 rounded-lg bg-arena-primary text-arena-bg font-semibold text-sm hover:bg-arena-primaryHover transition-colors flex items-center justify-center space-x-2"
             >
-              <span>Start Battling</span>
+              <button>Start Battling</button>
               <ArrowRight className="w-4 h-4" />
             </Link>
 
@@ -65,7 +65,7 @@ export default function LandingPage() {
               to="/problems"
               className="w-full sm:w-auto px-6 py-3 rounded-lg border border-arena-border text-arena-text font-medium text-sm hover:border-arena-primary/50 transition-colors flex items-center justify-center space-x-2"
             >
-              <span>Explore Problems</span>
+              <button>Explore Problems</button>
             </Link>
           </div>
 
