@@ -317,7 +317,7 @@ export default function ArenaPage() {
 
   return (
     <div className="min-h-[calc(100vh-64px)] flex flex-col bg-arena-bg text-arena-text">
-      
+
       {/* ──────────────────────────────────────────────────
           STATE 1: IDLE MATCHMAKING LOBBY
           ────────────────────────────────────────────────── */}
@@ -376,6 +376,7 @@ export default function ArenaPage() {
             {/* Find Match CTA Button */}
             <button
               onClick={() => dispatch(startMatchmaking({ rating: user?.rating || 1642 }))}
+
               className="w-full py-4 sm:py-5 rounded-2xl bg-gradient-to-r from-arena-primary to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-extrabold text-base sm:text-lg shadow-glow-primary transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center space-x-3 cursor-pointer"
             >
               <Swords className="w-5 h-5" />
@@ -554,7 +555,7 @@ export default function ArenaPage() {
 
             {/* Versus Player Showdown Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 items-center gap-4 py-3">
-              
+
               {/* Player 1 (You) */}
               <div className="p-4 rounded-2xl bg-arena-bg border border-arena-primary/30 text-center space-y-2">
                 <img
@@ -618,10 +619,10 @@ export default function ArenaPage() {
           ────────────────────────────────────────────────── */}
       {battle.status === 'BATTLE_ACTIVE' && battle.currentBattle && (
         <div className="flex-1 flex flex-col overflow-hidden bg-arena-bg">
-          
+
           {/* Top Serious Header HUD Bar with Score & End Battle Button */}
           <div className="px-6 py-2.5 bg-arena-bgElevated border-b border-arena-border flex flex-wrap items-center justify-between gap-3">
-            
+
             {/* Player 1 HUD (You) */}
             <div className="flex items-center space-x-3">
               <img
@@ -637,7 +638,7 @@ export default function ArenaPage() {
 
             {/* Center Live Score & Match Timer */}
             <div className="flex items-center space-x-3">
-              
+
               {/* Score Badge */}
               <div className="px-3.5 py-1.5 rounded-xl bg-arena-bg border border-arena-primary/40 flex items-center space-x-2 font-mono text-xs font-black shadow-inner">
                 <span className="text-arena-primary font-bold">{battle.userSolvedProblemIds.length}/3 Solved</span>
@@ -689,21 +690,19 @@ export default function ArenaPage() {
                     key={prob.problemId || idx}
                     type="button"
                     onClick={() => dispatch(setActiveProblemIndex(idx))}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center space-x-2 border cursor-pointer ${
-                      isActive
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center space-x-2 border cursor-pointer ${isActive
                         ? 'bg-arena-primary text-white border-arena-primary shadow-glow-primary'
                         : isSolved
-                        ? 'bg-arena-success/15 text-arena-success border-arena-success/30 hover:bg-arena-success/25'
-                        : 'bg-arena-bg text-arena-muted hover:text-arena-text border-arena-border hover:border-arena-border/80'
-                    }`}
+                          ? 'bg-arena-success/15 text-arena-success border-arena-success/30 hover:bg-arena-success/25'
+                          : 'bg-arena-bg text-arena-muted hover:text-arena-text border-arena-border hover:border-arena-border/80'
+                      }`}
                   >
                     <span>Q{idx + 1}: {prob.title}</span>
                     {isSolved ? (
                       <CheckCircle2 className="w-3.5 h-3.5 text-arena-success fill-current/20" />
                     ) : (
-                      <span className={`text-[9px] px-1.5 py-0.2 rounded uppercase ${
-                        isActive ? 'bg-black/30 text-white' : 'bg-arena-card text-arena-muted'
-                      }`}>
+                      <span className={`text-[9px] px-1.5 py-0.2 rounded uppercase ${isActive ? 'bg-black/30 text-white' : 'bg-arena-card text-arena-muted'
+                        }`}>
                         {prob.difficulty}
                       </span>
                     )}
@@ -725,7 +724,7 @@ export default function ArenaPage() {
 
           {/* 3-Column Competitive Workspace Grid */}
           <div className="flex-1 p-3 grid grid-cols-1 lg:grid-cols-12 gap-3 overflow-hidden bg-arena-bgDeep">
-            
+
             {/* LEFT: Problem Brief for Active Question */}
             <div className="lg:col-span-4 p-5 rounded-2xl bg-arena-card border border-arena-border overflow-y-auto space-y-4 text-xs leading-relaxed">
               <div className="flex items-center justify-between border-b border-arena-border/60 pb-3">
@@ -788,11 +787,10 @@ export default function ArenaPage() {
               </div>
 
               {runLogs && (
-                <div className={`p-3 rounded-xl border text-xs font-mono whitespace-pre-wrap ${
-                  runLogs.type === 'success' ? 'bg-arena-success/10 border-arena-success/40 text-arena-success' :
-                  runLogs.type === 'error' ? 'bg-red-500/10 border-red-500/40 text-red-400' :
-                  'bg-arena-card border-arena-border text-arena-primary'
-                }`}>
+                <div className={`p-3 rounded-xl border text-xs font-mono whitespace-pre-wrap ${runLogs.type === 'success' ? 'bg-arena-success/10 border-arena-success/40 text-arena-success' :
+                    runLogs.type === 'error' ? 'bg-red-500/10 border-red-500/40 text-red-400' :
+                      'bg-arena-card border-arena-border text-arena-primary'
+                  }`}>
                   {runLogs.message}
                 </div>
               )}
@@ -800,7 +798,7 @@ export default function ArenaPage() {
 
             {/* RIGHT: Live Opponent Telemetry & Battle HUD */}
             <div className="lg:col-span-3 flex flex-col space-y-3">
-              
+
               {/* Opponent Live Activity Card */}
               <div className="p-4 rounded-2xl bg-arena-card border border-arena-border space-y-3 text-xs">
                 <div className="flex items-center justify-between border-b border-arena-border/60 pb-2.5">

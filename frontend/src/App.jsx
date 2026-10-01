@@ -15,7 +15,7 @@ import { LoginPage, RegisterPage } from './pages/AuthPages';
 
 export default function App() {
   return (
-    <Router>
+    <Router>``
       <div className="relative min-h-screen flex flex-col bg-arena-bg text-arena-text">
         <AnimatedBackground />
         <Navbar />
